@@ -50,7 +50,7 @@ TRACK_BAND = [
     (4.5, 5.0),
 ]
 
-CONTOURS = [SILHOUETTE, TRACK_BAND]
+CONTOURS = [SILHOUETTE]
 
 
 def dxf() -> str:
