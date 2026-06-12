@@ -1,0 +1,100 @@
+'------------------------------------------------------------------
+' airplane_stamp.swb — макрос SolidWorks
+'
+' Строит кубик 60x60x60 мм с тиснением (углублением 2 мм)
+' в виде силуэта самолёта на верхней грани.
+' Силуэт — единый замкнутый 2D-контур, масштаб 0.4
+' (длина 48 мм, размах 56 мм). Печать без поддержек.
+'
+' Запуск: SolidWorks -> Инструменты -> Макрос -> Выполнить...
+'         (Tools -> Macro -> Run...) -> выбрать этот файл
+'------------------------------------------------------------------
+Option Explicit
+
+Const MM As Double = 0.001   ' API SolidWorks работает в метрах
+Const CUBE As Double = 60#   ' сторона кубика, мм
+Const SCL As Double = 0.4    ' масштаб силуэта
+Const DEPTH As Double = 2#   ' глубина тиснения, мм
+
+Dim swApp As Object
+Dim swModel As Object
+
+Sub main()
+    Dim pts As Variant
+    Dim i As Integer, j As Integer, n As Integer
+    Dim ok As Boolean
+
+    Set swApp = Application.SldWorks
+    Set swModel = swApp.NewPart()
+    If swModel Is Nothing Then
+        MsgBox "Не удалось создать деталь. Проверьте шаблон детали по умолчанию."
+        Exit Sub
+    End If
+
+    ' --- Кубик: квадрат на плоскости Сверху, вытяжка 60 мм ---
+    SelectTopPlane
+    swModel.SketchManager.InsertSketch True
+    swModel.SketchManager.CreateCenterRectangle 0#, 0#, 0#, _
+        CUBE / 2 * MM, CUBE / 2 * MM, 0#
+    swModel.FeatureManager.FeatureExtrusion2 True, False, False, 0, 0, CUBE * MM, 0#, _
+        False, False, False, False, 0#, 0#, False, False, False, False, True, True, True
+    swModel.ClearSelection2 True
+
+    ' --- Эскиз силуэта на верхней грани кубика ---
+    ok = swModel.Extension.SelectByID2("", "FACE", 0#, CUBE * MM, 0#, False, 0, Nothing, 0)
+    If Not ok Then
+        MsgBox "Не удалось выбрать верхнюю грань кубика."
+        Exit Sub
+    End If
+    swModel.SketchManager.InsertSketch True
+
+    ' Силуэт самолёта (мм, до масштабирования): длина 120, размах 140.
+    ' Единый замкнутый контур — объединение фюзеляжа, крыла
+    ' и стабилизатора. Центр фюзеляжа смещён в центр грани.
+    pts = Array( _
+        0#, -3#, 8#, -7#, 32.8, -7#, _
+        40#, -70#, 58#, -70#, 67#, -7#, _
+        97#, -7#, 100#, -28#, 112#, -28#, _
+        117.109, -4.156, 120#, -3#, _
+        120#, 3#, 117.109, 4.156, _
+        112#, 28#, 100#, 28#, 97#, 7#, _
+        67#, 7#, 58#, 70#, 40#, 70#, 32.8, 7#, _
+        8#, 7#, 0#, 3#)
+
+    swModel.SetAddToDB True
+    n = (UBound(pts) + 1) \ 2
+    For i = 0 To n - 1
+        j = (i + 1) Mod n
+        swModel.SketchManager.CreateLine _
+            (pts(2 * i) - 60#) * SCL * MM, pts(2 * i + 1) * SCL * MM, 0#, _
+            (pts(2 * j) - 60#) * SCL * MM, pts(2 * j + 1) * SCL * MM, 0#
+    Next i
+    swModel.SetAddToDB False
+
+    ' --- Вырез (тиснение) на глубину 2 мм ---
+    swModel.FeatureManager.FeatureCut3 True, False, False, 0, 0, DEPTH * MM, 0#, _
+        False, False, False, False, 0#, 0#, False, False, False, False, _
+        False, True, True, True, True, False
+    swModel.ClearSelection2 True
+
+    swModel.ShowNamedView2 "*Isometric", -1
+    swModel.ViewZoomtofit2
+    MsgBox "Готово! Кубик с тиснением самолёта построен." & vbCrLf & _
+           "Если вырез ушёл не в ту сторону — откройте его в дереве" & vbCrLf & _
+           "построения и нажмите «Реверс направления»."
+End Sub
+
+' Выбор плоскости Сверху с учётом локализации SolidWorks
+Sub SelectTopPlane()
+    Dim names As Variant
+    Dim i As Integer
+    Dim ok As Boolean
+    names = Array("Top Plane", "Сверху", "Top", "Plane2")
+    swModel.ClearSelection2 True
+    For i = 0 To UBound(names)
+        ok = swModel.Extension.SelectByID2(names(i), "PLANE", 0, 0, 0, False, 0, Nothing, 0)
+        If ok Then Exit Sub
+    Next i
+    MsgBox "Не найдена плоскость Сверху (Top Plane)."
+    End
+End Sub

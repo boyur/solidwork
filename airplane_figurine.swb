@@ -1,0 +1,100 @@
+'------------------------------------------------------------------
+' airplane_figurine.swb — макрос SolidWorks
+'
+' Строит простую фигурку самолёта для 3D-печати.
+' Размеры в мм: длина 120, размах крыла 140, высота 34.
+' Все детали с плоским основанием — печать без поддержек.
+'
+' Запуск: SolidWorks -> Инструменты -> Макрос -> Выполнить...
+'         (Tools -> Macro -> Run...) -> выбрать этот файл
+'------------------------------------------------------------------
+Option Explicit
+
+Const MM As Double = 0.001 ' API SolidWorks работает в метрах
+
+Dim swApp As Object
+Dim swModel As Object
+
+Sub main()
+    Set swApp = Application.SldWorks
+    Set swModel = swApp.NewPart()
+    If swModel Is Nothing Then
+        MsgBox "Не удалось создать деталь. Проверьте шаблон детали по умолчанию."
+        Exit Sub
+    End If
+
+    ' Фюзеляж: профиль сбоку (плоскость Спереди), ширина 16 мм симметрично
+    DrawProfile "FRONT", Array(10#, 0#, 105#, 0#, 120#, 5#, 120#, 14#, 75#, 16#, 25#, 16#, 0#, 11#, 0#, 5#)
+    ExtrudeMidPlane 16#
+
+    ' Крыло: вид в плане (плоскость Сверху), толщина 5 мм вверх
+    DrawProfile "TOP", Array(32#, 0#, 40#, -70#, 58#, -70#, 68#, 0#, 58#, 70#, 40#, 70#)
+    ExtrudeBlind 5#
+
+    ' Горизонтальный стабилизатор: вид в плане, толщина 5 мм вверх
+    DrawProfile "TOP", Array(96#, 0#, 100#, -28#, 112#, -28#, 118#, 0#, 112#, 28#, 100#, 28#)
+    ExtrudeBlind 5#
+
+    ' Киль: профиль сбоку, толщина 4 мм симметрично
+    DrawProfile "FRONT", Array(100#, 13#, 118#, 13#, 118#, 34#, 110#, 34#)
+    ExtrudeMidPlane 4#
+
+    ' Кабина: профиль сбоку, ширина 10 мм симметрично
+    DrawProfile "FRONT", Array(30#, 15#, 50#, 15#, 46#, 24#, 36#, 24#)
+    ExtrudeMidPlane 10#
+
+    swModel.ShowNamedView2 "*Isometric", -1
+    swModel.ViewZoomtofit2
+    MsgBox "Готово! Фигурка самолёта построена." & vbCrLf & _
+           "Для печати сохраните как STL: Файл -> Сохранить как -> STL."
+End Sub
+
+' Выбор базовой плоскости с учётом локализации SolidWorks
+Sub SelectPlane(which As String)
+    Dim names As Variant
+    Dim i As Integer
+    Dim ok As Boolean
+    If which = "FRONT" Then
+        names = Array("Front Plane", "Спереди", "Front", "Plane1")
+    Else
+        names = Array("Top Plane", "Сверху", "Top", "Plane2")
+    End If
+    swModel.ClearSelection2 True
+    For i = 0 To UBound(names)
+        ok = swModel.Extension.SelectByID2(names(i), "PLANE", 0, 0, 0, False, 0, Nothing, 0)
+        If ok Then Exit Sub
+    Next i
+    MsgBox "Не найдена базовая плоскость (" & which & ")."
+    End
+End Sub
+
+' Рисует замкнутый контур по парам координат (мм) в эскизе на плоскости
+Sub DrawProfile(plane As String, pts As Variant)
+    Dim n As Integer, i As Integer, j As Integer
+    SelectPlane plane
+    swModel.SketchManager.InsertSketch True
+    swModel.SetAddToDB True
+    n = (UBound(pts) + 1) \ 2
+    For i = 0 To n - 1
+        j = (i + 1) Mod n
+        swModel.SketchManager.CreateLine pts(2 * i) * MM, pts(2 * i + 1) * MM, 0#, _
+                                         pts(2 * j) * MM, pts(2 * j + 1) * MM, 0#
+    Next i
+    swModel.SetAddToDB False
+End Sub
+
+' Вытяжка симметрично от плоскости эскиза (средняя плоскость)
+Sub ExtrudeMidPlane(thickMM As Double)
+    ' 6 = swEndCondMidPlane
+    swModel.FeatureManager.FeatureExtrusion2 True, False, False, 6, 0, thickMM * MM, 0#, _
+        False, False, False, False, 0#, 0#, False, False, False, False, True, True, True
+    swModel.ClearSelection2 True
+End Sub
+
+' Вытяжка на заданную глубину в одну сторону (вверх от плоскости Сверху)
+Sub ExtrudeBlind(thickMM As Double)
+    ' 0 = swEndCondBlind
+    swModel.FeatureManager.FeatureExtrusion2 True, False, False, 0, 0, thickMM * MM, 0#, _
+        False, False, False, False, 0#, 0#, False, False, False, False, True, True, True
+    swModel.ClearSelection2 True
+End Sub
