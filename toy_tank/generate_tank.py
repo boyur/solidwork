@@ -2,40 +2,37 @@
 """Generate a simple 2D toy-tank silhouette as DXF (for SolidWorks sketch
 import) and an SVG preview.
 
-Geometry is one closed polyline (outer silhouette, arcs encoded as bulges)
-plus four circles (road wheels). Units: millimetres. Overall size 36 x 19 mm —
-fits the face of a 40 mm cube; scale freely in SolidWorks.
+Geometry is one closed polyline, straight segments only: rhomboid track
+(pointed ends), hull, square turret, barrel. Units: millimetres. Overall
+size 38 x 19 mm — fits the face of a 40 mm cube; scale freely in SolidWorks.
 """
 
 import math
 
 # Outer silhouette, counter-clockwise. Each entry: (x, y, bulge)
 # where bulge applies to the segment from this vertex to the next.
-B90 = math.tan(math.radians(90 / 4))  # 90-degree arc
-B180 = 1.0                            # 180-degree arc
-
 OUTLINE = [
     (5.0, 0.0, 0),       # track, flat bottom
-    (31.0, 0.0, B180),   # right end of track -> semicircle up
-    (29.0, 10.0, 0),     # short flat on top of track
-    (29.0, 13.0, 0),     # hull right side (vertex at top)
-    (24.0, 13.0, 0),     # hull top, right part
-    (24.0, 14.5, 0),     # turret right side, below barrel
-    (36.0, 14.5, 0),     # barrel bottom
-    (36.0, 16.2, 0),     # barrel muzzle
-    (24.0, 16.2, 0),     # barrel top
-    (24.0, 17.5, B90),   # turret right side -> rounded corner
-    (22.5, 19.0, 0),     # turret top
-    (13.5, 19.0, B90),   # rounded corner
-    (12.0, 17.5, 0),     # turret left side
-    (12.0, 13.0, 0),     # turret left bottom
-    (7.0, 13.0, 0),      # hull top, left part
-    (7.0, 10.0, 0),      # hull left side
-    (5.0, 10.0, B180),   # left end of track -> semicircle down, closes path
+    (31.0, 0.0, 0),      # slant up to the right track point
+    (36.0, 5.0, 0),      # track right point, slant back up
+    (31.0, 10.0, 0),     # track top, right flat
+    (29.0, 10.0, 0),     # hull right side
+    (29.0, 13.0, 0),     # hull top, right part
+    (24.0, 13.0, 0),     # turret right side, below barrel
+    (24.0, 14.5, 0),     # barrel bottom
+    (38.0, 14.5, 0),     # barrel muzzle
+    (38.0, 16.2, 0),     # barrel top
+    (24.0, 16.2, 0),     # turret right side, above barrel
+    (24.0, 19.0, 0),     # turret top
+    (12.0, 19.0, 0),     # turret left side
+    (12.0, 13.0, 0),     # hull top, left part
+    (7.0, 13.0, 0),      # hull left side
+    (7.0, 10.0, 0),      # track top, left flat
+    (5.0, 10.0, 0),      # slant down to the left track point
+    (0.0, 5.0, 0),       # track left point, slant down closes path
 ]
 
-WHEELS = [((8.0, 5.0), 2.5), ((15.0, 5.0), 2.5),
-          ((22.0, 5.0), 2.5), ((29.0, 5.0), 2.5)]
+WHEELS = []
 
 
 def dxf() -> str:
@@ -78,7 +75,7 @@ def svg() -> str:
         f'<circle cx="{cx}" cy="{h - cy}" r="{r}" fill="white" '
         f'stroke="black" stroke-width="0.4"/>'
         for (cx, cy), r in WHEELS)
-    return f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="-2 -2 40 23"
+    return f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="-2 -2 42 23"
      width="800" height="460">
   <path d="{' '.join(d)}" fill="#cccccc" stroke="black" stroke-width="0.4"/>
   {circles}
